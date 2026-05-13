@@ -1,6 +1,7 @@
 # UdaPlay - AI Game Research Agent Project
 
 ## Project Overview
+
 UdaPlay is an AI-powered research agent for the video game industry. This project is divided into two main parts that will help you build a sophisticated AI agent capable of answering questions about video games using both local knowledge and web searches.
 
 ## Project Structure
