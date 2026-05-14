@@ -6,6 +6,9 @@ pydantic
 chromadb
 openai
 
+# PDF Processing
+pdfplumber
+
 # Web Search
 tavily-python
 

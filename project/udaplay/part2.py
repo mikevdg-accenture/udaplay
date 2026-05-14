@@ -1,5 +1,8 @@
 import os
 
+from dotenv import load_dotenv
+
+import chromadb
 from lib.agents import Agent
 from lib.llm import LLM
 from lib.messages import AIMessage, SystemMessage, ToolMessage, UserMessage

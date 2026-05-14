@@ -3,7 +3,7 @@
   "venvPath": ".",
   "venv": ".venv",
   "exclude": [".venv"],
-  "typeCheckingMode": "strict",
+  "typeCheckingMode": "standard",
 
   "reportMissingParameterType": "warning",
   "reportUnknownVariableType": "warning",

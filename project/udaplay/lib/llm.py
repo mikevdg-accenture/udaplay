@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 from lib.messages import (
     AIMessage,
-    AnyMessage,
     BaseMessage,
     TokenUsage,
     UserMessage,
@@ -24,10 +23,22 @@ class LLM:
     ):
         self.model = model
         self.temperature = temperature
+        api_key = api_key or os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_API_BASE")
-        self.client: OpenAI = (
-            OpenAI(api_key=api_key, base_url=base_url) if api_key else OpenAI()
-        )
+
+        # Validate that required environment variables are configured
+        if not api_key:
+            raise EnvironmentError(
+                "OPENAI_API_KEY environment variable is not set. "
+                "Please configure your API key in the .env file or set the environment variable."
+            )
+        if not base_url:
+            raise EnvironmentError(
+                "OPENAI_API_BASE environment variable is not set. "
+                "Please configure your API base URL (Vocareum endpoint) in the .env file or set the environment variable."
+            )
+
+        self.client: OpenAI = OpenAI(api_key=api_key, base_url=base_url)
         self.tools: Dict[str, Tool] = {tool.name: tool for tool in (tools or [])}
 
     def register_tool(self, tool: Tool):

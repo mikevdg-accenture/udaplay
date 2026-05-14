@@ -1,0 +1,1 @@
+We use Vocareum rather than OpenAI directly. Vocareum is a billing proxy for OpenAI. Any errors about incorrect API keys suggest that calls to `OpenAI()` need to use a method parameter `base_url` set to the environment variable `OPENAI_API_BASE`.
