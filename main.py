@@ -54,6 +54,6 @@ if __name__ == "__main__":
     for question in test_questions:
         agent.reset_session()
         print(f"Question: {question}")
-        result = agent.invoke(question)
-        print(f"Answer: {result}")
+        agent.invoke(question)
+        print(f"Answer: {agent.get_answer()}")
         agent.pretty_print_memory()

@@ -1,4 +1,6 @@
 import json
+import re
+import unicodedata
 from typing import List, Optional, TypedDict, Union
 
 from lib.llm import LLM
@@ -181,6 +183,14 @@ class Agent:
 
         return run_object
 
+    def get_answer(self, session_id: Optional[str] = None) -> str:
+        """Get the final answer from the most recent run in a session."""
+        last_run = self.memory.get_last_object(session_id)
+        if last_run:
+            return last_run.get_final_state()["messages"][-1].content
+        else:
+            return ""
+
     def get_session_runs(self, session_id: Optional[str] = None) -> List[Run]:
         """Get all Run objects for a session
 
@@ -213,6 +223,10 @@ class Agent:
         Args:
             session_id: Optional session ID (uses "default" if None)
         """
+
+        # This was created by Claude at my request. I specifically requested emoji and colours
+        # because they're cool.
+
         # ANSI escape codes
         RESET = "\033[0m"
         BOLD = "\033[1m"
@@ -223,6 +237,44 @@ class Agent:
         YELLOW = "\033[93m"
         MAGENTA = "\033[95m"
         CYAN = "\033[96m"
+
+        MAX_WIDTH = 80
+        ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+        LABEL_WIDTH = 11  # len("TOOL RESULT") — the longest label
+
+        def _term_width(s: str) -> int:
+            """Terminal column width, stripping ANSI codes and treating wide/emoji chars as 2."""
+            clean = ANSI_RE.sub("", s)
+            w = 0
+            i = 0
+            while i < len(clean):
+                # Variation Selector-16 (U+FE0F) forces emoji (wide) rendering
+                if i + 1 < len(clean) and ord(clean[i + 1]) == 0xFE0F:
+                    w += 2
+                    i += 2
+                    continue
+                w += 2 if unicodedata.east_asian_width(clean[i]) in ("W", "F") else 1
+                i += 1
+            return w
+
+        def _flatten(text: Optional[str]) -> str:
+            """Collapse all whitespace/newlines into single spaces."""
+            if text is None:
+                return ""
+            return " ".join(str(text).split())
+
+        def _print_line(
+            color: str, idx: int, emoji: str, label: str, content: Optional[str]
+        ) -> None:
+            """Print one fixed-width prefix line + content trimmed to MAX_WIDTH."""
+            idx_str = str(idx).rjust(idx_width)
+            padded_label = label.ljust(LABEL_WIDTH)
+            prefix = f"{color}{BOLD}[{idx_str}] {emoji} {padded_label} {RESET}{color}"
+            flat = _flatten(content)
+            remaining = MAX_WIDTH - _term_width(prefix)
+            if len(flat) > remaining:
+                flat = flat[: max(remaining - 3, 0)] + "..."
+            print(f"{prefix}{flat}{RESET}")
 
         session_id = session_id or "default"
         last_run: Optional[Run] = self.memory.get_last_object(session_id)
@@ -237,74 +289,49 @@ class Agent:
 
         messages: List[BaseMessage] = final_state["messages"]
         total_tokens = final_state.get("total_tokens", 0)
+        idx_width = len(str(len(messages)))  # digits needed for the largest index
 
         header = f"🧵 Agent Memory — session='{session_id}' run={last_run.run_id[:8]} ({len(messages)} messages)"
         print(f"\n{BOLD}{CYAN}{header}{RESET}")
         print(f"{CYAN}{'─' * min(len(header), 80)}{RESET}")
 
-        def _indent(text: Optional[str], prefix: str = "   ") -> str:
-            if text is None:
-                return ""
-            return "\n".join(prefix + line for line in str(text).splitlines())
-
         for idx, msg in enumerate(messages, start=1):
             if isinstance(msg, SystemMessage):
-                print(f"{GRAY}{BOLD}[{idx}] ⚙️  SYSTEM{RESET}")
-                print(f"{GRAY}{_indent(msg.content)}{RESET}")
+                _print_line(GRAY, idx, "⚙️ ", "SYSTEM", msg.content)
 
             elif isinstance(msg, UserMessage):
-                print(f"{BLUE}{BOLD}[{idx}] 👤 USER{RESET}")
-                print(f"{BLUE}{_indent(msg.content)}{RESET}")
+                _print_line(BLUE, idx, "👤", "USER", msg.content)
 
             elif isinstance(msg, AIMessage):
-                label = f"{GREEN}{BOLD}[{idx}] 🤖 ASSISTANT{RESET}"
-                if msg.token_usage:
-                    label += (
-                        f" {DIM}(tokens: prompt={msg.token_usage.prompt_tokens} "
-                        f"completion={msg.token_usage.completion_tokens} "
-                        f"total={msg.token_usage.total_tokens}){RESET}"
-                    )
-                print(label)
                 if msg.content:
-                    print(f"{GREEN}{_indent(msg.content)}{RESET}")
+                    _print_line(GREEN, idx, "🤖", "ASSISTANT", msg.content)
                 if msg.tool_calls:
                     for tc in msg.tool_calls:
-                        fn_name = tc.function.name
-                        fn_args = tc.function.arguments
-                        try:
-                            fn_args = json.dumps(json.loads(fn_args), indent=2)
-                        except (ValueError, TypeError):
-                            pass
-                        print(
-                            f"{YELLOW}   🔧 tool_call {tc.id}: "
-                            f"{BOLD}{fn_name}{RESET}{YELLOW}({RESET}"
+                        _print_line(
+                            YELLOW,
+                            idx,
+                            "🔧",
+                            "TOOL CALL",
+                            f"{tc.function.name}({_flatten(tc.function.arguments)})",
                         )
-                        print(f"{YELLOW}{_indent(fn_args, '      ')}{RESET}")
-                        print(f"{YELLOW}   ){RESET}")
+                if not msg.content and not msg.tool_calls:
+                    _print_line(GREEN, idx, "🤖", "ASSISTANT", None)
 
             elif isinstance(msg, ToolMessage):
-                print(
-                    f"{MAGENTA}{BOLD}[{idx}] 📦 TOOL RESULT{RESET}"
-                    f" {DIM}name={msg.name} call_id={msg.tool_call_id}{RESET}"
-                )
                 content = msg.content
-                # Try to prettify JSON tool output
                 try:
                     parsed = json.loads(content)
                     if isinstance(parsed, str):
-                        try:
-                            parsed = json.loads(parsed)
-                        except (ValueError, TypeError):
-                            pass
-                    content = json.dumps(parsed, indent=2, ensure_ascii=False)
+                        parsed = json.loads(parsed)
+                    content = json.dumps(parsed, ensure_ascii=False)
                 except (ValueError, TypeError):
                     pass
-                print(f"{MAGENTA}{_indent(content)}{RESET}")
+                _print_line(
+                    MAGENTA, idx, "📦", "TOOL RESULT", f"[{msg.name}] {content}"
+                )
 
             else:
-                # Fallback for any unexpected message type
-                print(f"{BOLD}[{idx}] ❓ {type(msg).__name__}{RESET}")
-                print(_indent(repr(msg)))
+                _print_line(BOLD, idx, "❓", type(msg).__name__, repr(msg))
 
         if total_tokens:
             print(
