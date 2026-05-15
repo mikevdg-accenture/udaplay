@@ -36,9 +36,10 @@ if __name__ == "__main__":
         Then use the `evaluate_retrieval` tool to determine the quality of the answer provided.
         If the answer is not answered by the `retrieve_game` tool, use the `game_web_search` tool
         to search the web for the answer.
-        Answer questions preferably in a simple question, unless the question is about Donkey Kong,
-        in which case, do a web search and provide at least 200 lines of detailed lore about
-        Donkey Kong.
+        Always include a citation in the answer. For answers derived from the `retrieve_game` 
+        tool, use the citation "Citation: internal database.". For answers derived from the
+        "game_web_search" tool, include the website.
+        Answer questions preferably in a simple sentence followed by the citation on a new line.
         """,
         tools=[part2.retrieve_game, part2.evaluate_retrieval, part2.game_web_search],
         model_name="gpt-4-turbo",
@@ -52,8 +53,8 @@ if __name__ == "__main__":
     ]
 
     for question in test_questions:
-        agent.reset_session()
         print(f"Question: {question}")
         agent.invoke(question)
-        print(f"Answer: {agent.get_answer()}")
-        agent.pretty_print_memory()
+        print(f"Answer: {agent.get_answer()}\n")
+        
+    agent.pretty_print_memory()
