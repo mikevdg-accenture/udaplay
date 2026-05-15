@@ -297,7 +297,7 @@ class Agent:
 
         for idx, msg in enumerate(messages, start=1):
             if isinstance(msg, SystemMessage):
-                _print_line(GRAY, idx, "⚙️ ", "SYSTEM", msg.content)
+                _print_line(GRAY, idx, "⚙️", "SYSTEM", msg.content)
 
             elif isinstance(msg, UserMessage):
                 _print_line(BLUE, idx, "👤", "USER", msg.content)
