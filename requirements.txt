@@ -1,0 +1,31 @@
+# Core Dependencies
+python-dotenv
+pydantic
+pydebug
+
+# Vector Database & Embeddings
+chromadb
+openai
+
+# PDF Processing
+pdfplumber
+
+# Web Search
+tavily-python
+
+# HTTP & Requests
+httpx
+requests
+
+# Additional Utilities
+numpy
+pandas
+
+# Optional: For Udacity workspace compatibility
+pysqlite3-binary
+
+# Development & Testing (Optional)
+# pytest
+# black
+# flake8
+# mypy

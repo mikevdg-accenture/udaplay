@@ -42,7 +42,6 @@ Required Tools to Implement:
 Create a `.env` file with the following API keys:
 ```
 OPENAI_API_KEY="YOUR_KEY"
-CHROMA_OPENAI_API_KEY="YOUR_KEY"
 TAVILY_API_KEY="YOUR_KEY"
 ```
 
