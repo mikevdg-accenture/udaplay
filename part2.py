@@ -1,6 +1,14 @@
 import json
 import os
+
 from datetime import datetime
+
+import importlib.util
+import sys
+if importlib.util.find_spec("pysqlite3") is not None:
+    import pysqlite3
+
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
 
 from chromadb.api.types import QueryResult
 from chromadb.utils import embedding_functions
@@ -44,6 +52,7 @@ def init_vector_db():
     collection = chroma_client.get_collection(
         "udaplay", embedding_function=embedding_fn
     )
+    vector_db = collection
     return collection
 
 
