@@ -1,6 +1,7 @@
 # Core Dependencies
 python-dotenv
 pydantic
+pydebug
 
 # Vector Database & Embeddings
 chromadb
