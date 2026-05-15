@@ -45,6 +45,20 @@ OPENAI_API_KEY="YOUR_KEY"
 TAVILY_API_KEY="YOUR_KEY"
 ```
 
+If running manually, set up your environment:
+
+```
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+and then to run:
+
+```
+python3 main.py
+```
+
 ### Project Dependencies
 - Python 3.11+
 - ChromaDB
@@ -54,16 +68,17 @@ TAVILY_API_KEY="YOUR_KEY"
 
 ### Directory Structure
 ```
-project/
-├── starter/
-│   ├── games/           # JSON files with game data
-│   ├── lib/             # Custom library implementations
-│   │   ├── llm.py       # LLM abstractions
-│   │   ├── messages.py  # Message handling
-│   │   ├── ...
-│   │   └── tooling.py   # Tool implementations
-│   ├── Udaplay_01_starter_project.ipynb  # Part 1 implementation
-│   └── Udaplay_02_starter_project.ipynb  # Part 2 implementation
+  ├── main.py          # Main entry point
+  ├── part1.py         # Initializes vector database.
+  ├── part2.py         # Runs the agent.
+  ├── games/           # JSON files with game data
+  ├── lib/             # Custom library implementations
+  │   ├── llm.py       # LLM abstractions
+  │   ├── messages.py  # Message handling
+  │   ├── ...
+  │   └── tooling.py   # Tool implementations
+  ├── Udaplay_01_starter_project.ipynb  # Part 1 implementation
+  └── Udaplay_02_starter_project.ipynb  # Part 2 implementation
 ```
 
 ## Getting Started
