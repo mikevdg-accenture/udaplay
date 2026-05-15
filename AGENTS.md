@@ -16,3 +16,8 @@ We use Vocareum rather than OpenAI directly. Vocareum is a billing proxy for Ope
 There is a custom `VocariumEmbeddingFunction` to ensure that Vocareum is used for embeddings in `lib/vector_db.py`.
 
 If you do not have access to write a file, tell the user so and stop. Sometimes the user forgets to enable file editing for agents.
+
+Common Problems
+===============
+
+If the user is experiencing problems with Jupyter notebooks, ask first if they have tried restarting the Python kernel.
