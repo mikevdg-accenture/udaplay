@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 
@@ -31,7 +32,7 @@ collection = chroma_client.get_collection("udaplay", embedding_function=embeddin
 @tool
 def retrieve_game(query: str) -> list:
     """
-    Semantic search: Finds some results in the vector DB. Only one result is returned.
+    Semantic search: Finds one result in the vector DB.
 
     Args:
        - query: a question about game industry
@@ -43,13 +44,12 @@ def retrieve_game(query: str) -> list:
        - YearOfRelease: Year when that game was released for that platform
        - Description: Additional details about the game
 
-    This database is not comprehensive; it only contains a few sample entries.
+    This database is not comprehensive; it only contains a few sample entries. Further investigation using other
+    resources might be necessary to answer questions.
     """
     # We don't need a state machine for this.
     results: QueryResult = collection.query(query_texts=[query], n_results=1)
     documents = results["documents"][0] if results["documents"] else []
-    # distances = results["distances"][0] if results["distances"] else []
-    # return {"documents": documents, "distances": distances}
     return documents
 
 
@@ -83,8 +83,9 @@ def evaluate_retrieval(question: str, retrieved_docs: list) -> dict:
         """
     )
     agent_query = {question: question, retrieved_docs: str(retrieved_docs)}
-    result = evaluation_agent.invoke(str(agent_query))
-    return result.get_final_state()
+    result: dict = evaluation_agent.invoke(str(agent_query)).get_final_state()
+    result_content = result["messages"][-1].content
+    return result_content
 
 
 # Use Tavily client to search the web
@@ -111,11 +112,13 @@ def game_web_search(question: str) -> str:
         include_images=False,
     )
 
-    # Format the results
+    # Return clean JSON with answer + results (sources), no metadata
     formatted_results = {
         "answer": search_result.get("answer", ""),
-        "results": search_result.get("results", []),
-        "search_metadata": {"timestamp": datetime.now().isoformat(), "query": question},
+        "results": [
+            {"title": r.get("title"), "url": r.get("url"), "snippet": r.get("snippet")}
+            for r in search_result.get("results", [])[:3]  # Top 3 results
+        ],
     }
 
-    return str(formatted_results)
+    return json.dumps(formatted_results)

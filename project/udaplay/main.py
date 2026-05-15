@@ -47,8 +47,8 @@ if __name__ == "__main__":
     )
 
     test_questions = [
-        "When were Pokémon Gold and Silver was released?",
-        "Which one was the first 3D platformer Mario game?",
+        # "When were Pokémon Gold and Silver was released?",
+        # "Which one was the first 3D platformer Mario game?",
         "Was Mortal Kombat X released for Playstation 5?",
     ]
 
