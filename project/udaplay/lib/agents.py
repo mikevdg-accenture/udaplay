@@ -3,7 +3,7 @@ from typing import List, Optional, TypedDict, Union
 
 from lib.llm import LLM
 from lib.memory import ShortTermMemory
-from lib.messages import AIMessage, SystemMessage, ToolMessage, UserMessage
+from lib.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage, UserMessage
 from lib.state_machine import EntryPoint, Run, StateMachine, Step, Termination
 from lib.tooling import Tool, ToolCall
 
@@ -12,7 +12,7 @@ from lib.tooling import Tool, ToolCall
 class AgentState(TypedDict):
     user_query: str  # The current user query being processed
     instructions: str  # System instructions for the agent
-    messages: List[dict]  # List of conversation messages
+    messages: List[BaseMessage]  # List of conversation messages
     current_tool_calls: Optional[List[ToolCall]]  # Current pending tool calls
     total_tokens: int  # Track the cumulative total
 
@@ -20,9 +20,9 @@ class AgentState(TypedDict):
 class Agent:
     def __init__(
         self,
-        model_name: str,
         instructions: str,
         tools: List[Tool] = [],
+        model_name: str = "gpt-4-turbo",
         temperature: float = 0.7,
     ):
         """
@@ -45,11 +45,11 @@ class Agent:
 
     def _prepare_messages_step(self, state: AgentState) -> AgentState:
         """Step logic: Prepare messages for LLM consumption"""
-        messages = state.get("messages", [])
+        messages: List[BaseMessage] = list(state.get("messages", []) or [])
 
         # If no messages exist, start with system message
         if not messages:
-            messages = [SystemMessage(content=state["instructions"])]
+            messages.append(SystemMessage(content=state["instructions"]))
 
         # Add the new user message
         messages.append(UserMessage(content=state["user_query"]))
@@ -199,3 +199,116 @@ class Agent:
             session_id: Optional session to reset (uses "default" if None)
         """
         self.memory.reset(session_id)
+
+    def pretty_print_memory(self, session_id: Optional[str] = None) -> None:
+        """Pretty-print the agent's memory for the most recent run in a session.
+
+        Uses ANSI colours and emoji to make each message type easy to scan:
+          - ⚙️  System (gray)
+          - 👤 User (blue)
+          - 🤖 Assistant (green)
+          - 🔧 Tool call (yellow)
+          - 📦 Tool response (magenta)
+
+        Args:
+            session_id: Optional session ID (uses "default" if None)
+        """
+        # ANSI escape codes
+        RESET = "\033[0m"
+        BOLD = "\033[1m"
+        DIM = "\033[2m"
+        GRAY = "\033[90m"
+        BLUE = "\033[94m"
+        GREEN = "\033[92m"
+        YELLOW = "\033[93m"
+        MAGENTA = "\033[95m"
+        CYAN = "\033[96m"
+
+        session_id = session_id or "default"
+        last_run: Optional[Run] = self.memory.get_last_object(session_id)
+        if last_run is None:
+            print(f"{DIM}(no runs recorded for session '{session_id}'){RESET}")
+            return
+
+        final_state = last_run.get_final_state()
+        if not final_state or not final_state.get("messages"):
+            print(f"{DIM}(no messages recorded in last run){RESET}")
+            return
+
+        messages: List[BaseMessage] = final_state["messages"]
+        total_tokens = final_state.get("total_tokens", 0)
+
+        header = f"🧵 Agent Memory — session='{session_id}' run={last_run.run_id[:8]} ({len(messages)} messages)"
+        print(f"\n{BOLD}{CYAN}{header}{RESET}")
+        print(f"{CYAN}{'─' * min(len(header), 80)}{RESET}")
+
+        def _indent(text: Optional[str], prefix: str = "   ") -> str:
+            if text is None:
+                return ""
+            return "\n".join(prefix + line for line in str(text).splitlines())
+
+        for idx, msg in enumerate(messages, start=1):
+            if isinstance(msg, SystemMessage):
+                print(f"{GRAY}{BOLD}[{idx}] ⚙️  SYSTEM{RESET}")
+                print(f"{GRAY}{_indent(msg.content)}{RESET}")
+
+            elif isinstance(msg, UserMessage):
+                print(f"{BLUE}{BOLD}[{idx}] 👤 USER{RESET}")
+                print(f"{BLUE}{_indent(msg.content)}{RESET}")
+
+            elif isinstance(msg, AIMessage):
+                label = f"{GREEN}{BOLD}[{idx}] 🤖 ASSISTANT{RESET}"
+                if msg.token_usage:
+                    label += (
+                        f" {DIM}(tokens: prompt={msg.token_usage.prompt_tokens} "
+                        f"completion={msg.token_usage.completion_tokens} "
+                        f"total={msg.token_usage.total_tokens}){RESET}"
+                    )
+                print(label)
+                if msg.content:
+                    print(f"{GREEN}{_indent(msg.content)}{RESET}")
+                if msg.tool_calls:
+                    for tc in msg.tool_calls:
+                        fn_name = tc.function.name
+                        fn_args = tc.function.arguments
+                        try:
+                            fn_args = json.dumps(json.loads(fn_args), indent=2)
+                        except (ValueError, TypeError):
+                            pass
+                        print(
+                            f"{YELLOW}   🔧 tool_call {tc.id}: "
+                            f"{BOLD}{fn_name}{RESET}{YELLOW}({RESET}"
+                        )
+                        print(f"{YELLOW}{_indent(fn_args, '      ')}{RESET}")
+                        print(f"{YELLOW}   ){RESET}")
+
+            elif isinstance(msg, ToolMessage):
+                print(
+                    f"{MAGENTA}{BOLD}[{idx}] 📦 TOOL RESULT{RESET}"
+                    f" {DIM}name={msg.name} call_id={msg.tool_call_id}{RESET}"
+                )
+                content = msg.content
+                # Try to prettify JSON tool output
+                try:
+                    parsed = json.loads(content)
+                    if isinstance(parsed, str):
+                        try:
+                            parsed = json.loads(parsed)
+                        except (ValueError, TypeError):
+                            pass
+                    content = json.dumps(parsed, indent=2, ensure_ascii=False)
+                except (ValueError, TypeError):
+                    pass
+                print(f"{MAGENTA}{_indent(content)}{RESET}")
+
+            else:
+                # Fallback for any unexpected message type
+                print(f"{BOLD}[{idx}] ❓ {type(msg).__name__}{RESET}")
+                print(_indent(repr(msg)))
+
+        if total_tokens:
+            print(
+                f"{CYAN}{'─' * 40}{RESET}\n"
+                f"{CYAN}{BOLD}📊 Total tokens used in this run: {total_tokens}{RESET}"
+            )
+        print()

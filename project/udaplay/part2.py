@@ -1,27 +1,37 @@
 import os
+from datetime import datetime
 
+from chromadb.api.types import QueryResult
+from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
+from tavily import TavilyClient
 
 import chromadb
 from lib.agents import Agent
-from lib.llm import LLM
-from lib.messages import AIMessage, SystemMessage, ToolMessage, UserMessage
 from lib.tooling import tool
 
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+API_BASE = os.getenv("OPENAI_API_BASE")
 
-# It should use chroma client and collection you created
 chroma_client = chromadb.PersistentClient(path="chromadb")
-collection = chroma_client.get_collection("udaplay")
+
+# Use ChromaDB's built-in OpenAI embedding function, pointed at the Vocareum proxy.
+# The collection was stored with the 'openai' type, so this avoids a type conflict.
+embedding_fn = embedding_functions.OpenAIEmbeddingFunction(
+    api_key=OPENAI_API_KEY,
+    api_base=API_BASE,
+    model_name="text-embedding-ada-002",
+)
+collection = chroma_client.get_collection("udaplay", embedding_function=embedding_fn)
 
 
 @tool
 def retrieve_game(query: str) -> list:
     """
-    Semantic search: Finds most results in the vector DB
+    Semantic search: Finds some results in the vector DB. Only one result is returned.
 
     Args:
        - query: a question about game industry
@@ -32,8 +42,15 @@ def retrieve_game(query: str) -> list:
        - Name: Name of the Game
        - YearOfRelease: Year when that game was released for that platform
        - Description: Additional details about the game
+
+    This database is not comprehensive; it only contains a few sample entries.
     """
-    raise NotImplementedError()
+    # We don't need a state machine for this.
+    results: QueryResult = collection.query(query_texts=[query], n_results=1)
+    documents = results["documents"][0] if results["documents"] else []
+    # distances = results["distances"][0] if results["distances"] else []
+    # return {"documents": documents, "distances": distances}
+    return documents
 
 
 # You might use an LLM as judge in this tool to evaluate the performance
@@ -58,7 +75,16 @@ def evaluate_retrieval(question: str, retrieved_docs: list) -> dict:
        - useful: whether the documents are useful to answer the question
        - description: description about the evaluation result
     """
-    raise NotImplementedError()
+    evaluation_agent: Agent = Agent(
+        instructions="""
+        Your task is to evaluate whether retrieved documents are useful in answering the given question.
+        If the supplied documents do not contain sufficient information to answer the question, respond with
+        a suggestion to do a web search.
+        """
+    )
+    agent_query = {question: question, retrieved_docs: str(retrieved_docs)}
+    result = evaluation_agent.invoke(str(agent_query))
+    return result.get_final_state()
 
 
 # Use Tavily client to search the web
@@ -74,4 +100,22 @@ def game_web_search(question: str) -> str:
     Returns:
        Search results related to the game industry question
     """
-    raise NotImplementedError()
+    client = TavilyClient(api_key=TAVILY_API_KEY)
+
+    # Perform the search
+    search_result = client.search(
+        query=question,
+        search_depth="advanced",
+        include_answer=True,
+        include_raw_content=False,
+        include_images=False,
+    )
+
+    # Format the results
+    formatted_results = {
+        "answer": search_result.get("answer", ""),
+        "results": search_result.get("results", []),
+        "search_metadata": {"timestamp": datetime.now().isoformat(), "query": question},
+    }
+
+    return str(formatted_results)

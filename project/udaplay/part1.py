@@ -10,23 +10,7 @@ from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from openai import OpenAI
 
-
-class VocariumEmbeddingFunction(EmbeddingFunction):
-    """Custom embedding function that uses Vocareum endpoint with proper base_url."""
-
-    def __init__(self, api_key: str, api_base: str):
-        self.api_key = api_key
-        self.api_base = api_base
-        # Create OpenAI client with proper base_url
-        self.client = OpenAI(api_key=api_key, base_url=api_base)
-
-    def __call__(self, input: list[str]) -> list[list[float]]:
-        """Generate embeddings for a list of texts."""
-        response = self.client.embeddings.create(
-            model="text-embedding-ada-002", input=input
-        )
-        return [item.embedding for item in response.data]
-
+from lib.vector_db import VocariumEmbeddingFunction
 
 printHeading("PART 01 - OFFLINE RAG: Setting up Vector Database")
 

@@ -13,7 +13,7 @@ from lib.agents import Agent
 from part2 import evaluate_retrieval, game_web_search, retrieve_game
 
 # Enable debug logging for OpenAI
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 
 def printHeading(heading: str):
@@ -33,26 +33,28 @@ def printHeading(heading: str):
 if __name__ == "__main__":
     agent: Agent = Agent(
         instructions="""You are UdaPlay, an AI Research Agent for the video game industry.
-        Your responsibilities include:
-        1. Answering questions using internal knowledge (RAG)
-        2. Searching the web when needed
-        3. Maintaining conversation state
-        4. Returning structured outputs
-        5. Storing useful information for future use
-
-        Use the available tools appropriately to provide accurate and helpful information.
+        Politely decline to answer any question not related to video games.
+        For all questions, first use the tool `retrieve_game` to attempt to answer the question.
+        Then use the `evaluate_retrieval` tool to determine the quality of the answer provided.
+        If the answer is not answered by the `retrieve_game` tool, use the `game_web_search` tool
+        to search the web for the answer.
+        Answer questions preferably in a simple question, unless the question is about Donkey Kong,
+        in which case, do a web search and provide at least 200 lines of detailed lore about
+        Donkey Kong.
         """,
         tools=[retrieve_game, evaluate_retrieval, game_web_search],
         model_name="gpt-4-turbo",
     )
 
     test_questions = [
-        "When Pokémon Gold and Silver was released?",
+        "When were Pokémon Gold and Silver was released?",
         "Which one was the first 3D platformer Mario game?",
         "Was Mortal Kombat X released for Playstation 5?",
     ]
 
     for question in test_questions:
-        print(f"\nQuestion: {question}")
+        agent.reset_session()
+        printHeading(f"Question: {question}")
         result = agent.invoke(question)
         print(f"Answer: {result}")
+        agent.pretty_print_memory()
