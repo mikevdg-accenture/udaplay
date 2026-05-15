@@ -9,19 +9,12 @@ This script combines two parts:
 
 import logging
 
+import part1
+import part2
 from lib.agents import Agent
-from part2 import evaluate_retrieval, game_web_search, retrieve_game
 
 # Enable debug logging for OpenAI
 # logging.basicConfig(level=logging.DEBUG)
-
-
-def printHeading(heading: str):
-    print("\n")
-    print("=" * 80)
-    print(heading)
-    print("=" * 80)
-
 
 # =============================================================================
 # Optional Advanced Features
@@ -31,6 +24,11 @@ def printHeading(heading: str):
 # TODO: Convert the agent to be a state machine, with the tools being pre-defined nodes
 
 if __name__ == "__main__":
+    vector_db = part1.setup_vector_db()
+
+    # Forgive me for this.
+    part2.vector_db = vector_db
+
     agent: Agent = Agent(
         instructions="""You are UdaPlay, an AI Research Agent for the video game industry.
         Politely decline to answer any question not related to video games.
@@ -42,19 +40,20 @@ if __name__ == "__main__":
         in which case, do a web search and provide at least 200 lines of detailed lore about
         Donkey Kong.
         """,
-        tools=[retrieve_game, evaluate_retrieval, game_web_search],
+        tools=[part2.retrieve_game, part2.evaluate_retrieval, part2.game_web_search],
         model_name="gpt-4-turbo",
     )
 
     test_questions = [
-        # "When were Pokémon Gold and Silver was released?",
-        # "Which one was the first 3D platformer Mario game?",
+        "When were Pokémon Gold and Silver was released?",
+        "Which one was the first 3D platformer Mario game?",
         "Was Mortal Kombat X released for Playstation 5?",
+        # "Tell me all about Donkey Kong."
     ]
 
     for question in test_questions:
         agent.reset_session()
-        printHeading(f"Question: {question}")
+        print(f"Question: {question}")
         result = agent.invoke(question)
         print(f"Answer: {result}")
         agent.pretty_print_memory()

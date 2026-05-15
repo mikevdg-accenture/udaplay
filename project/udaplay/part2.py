@@ -17,16 +17,24 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 API_BASE = os.getenv("OPENAI_API_BASE")
 
-chroma_client = chromadb.PersistentClient(path="chromadb")
+vector_db = None
 
-# Use ChromaDB's built-in OpenAI embedding function, pointed at the Vocareum proxy.
-# The collection was stored with the 'openai' type, so this avoids a type conflict.
-embedding_fn = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=OPENAI_API_KEY,
-    api_base=API_BASE,
-    model_name="text-embedding-ada-002",
-)
-collection = chroma_client.get_collection("udaplay", embedding_function=embedding_fn)
+
+# Not used, but works if you want to get a previously configured vector DB.
+def init_vector_db():
+    chroma_client = chromadb.PersistentClient(path="chromadb")
+
+    # Use ChromaDB's built-in OpenAI embedding function, pointed at the Vocareum proxy.
+    # The collection was stored with the 'openai' type, so this avoids a type conflict.
+    embedding_fn = embedding_functions.OpenAIEmbeddingFunction(
+        api_key=OPENAI_API_KEY,
+        api_base=API_BASE,
+        model_name="text-embedding-ada-002",
+    )
+    collection = chroma_client.get_collection(
+        "udaplay", embedding_function=embedding_fn
+    )
+    return collection
 
 
 @tool
@@ -48,7 +56,7 @@ def retrieve_game(query: str) -> list:
     resources might be necessary to answer questions.
     """
     # We don't need a state machine for this.
-    results: QueryResult = collection.query(query_texts=[query], n_results=1)
+    results: QueryResult = vector_db.query(query_texts=[query], n_results=1)
     documents = results["documents"][0] if results["documents"] else []
     return documents
 
