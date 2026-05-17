@@ -111,6 +111,37 @@ class Agent:
             "session_id": state["session_id"],
         }
 
+    def _evaluate_step(self, state: AgentState) -> AgentState:
+        evaluation_agent: Agent = Agent(
+            instructions="""
+            Your task is to evaluate whether retrieved documents are suitable for answering the given question.
+            Questions and documents will be provided in JSON format, in the format `{"question": question, "retrieved_documents": documents}`.
+            If the supplied documents do not contain sufficient information to answer the question, respond with
+            a suggestion to do a web search.
+            """
+        )
+
+        question : str = state["messages"][-4].content
+        answer : str = state["messages"][-1].content
+
+        agent_query = {"question": question, "retrieved_documents": answer}
+        result: dict = evaluation_agent.invoke(str(agent_query)).get_final_state()
+        result_content = result["messages"][-1].content
+
+        print(f"Question: {agent_query}")
+        print(f"Evalution result: {result_content}")
+
+        ai_message = AIMessage(
+            content=result_content,
+            tool_calls=None,
+        )
+
+        return {
+            "messages": state["messages"] + [ai_message],
+            "current_tool_calls": None,
+            "session_id": state["session_id"]
+        }
+
     def _create_state_machine(self) -> StateMachine[AgentState]:
         """Create the internal state machine for the agent"""
         machine = StateMachine[AgentState](AgentState)
@@ -119,11 +150,12 @@ class Agent:
         entry = EntryPoint[AgentState]()
         message_prep = Step[AgentState]("message_prep", self._prepare_messages_step)
         llm_processor = Step[AgentState]("llm_processor", self._llm_step)
+        evaluate_response = Step[AgentState]("evaluate_response", self._evaluate_step)
         tool_executor = Step[AgentState]("tool_executor", self._tool_step)
         termination = Termination[AgentState]()
 
         machine.add_steps(
-            [entry, message_prep, llm_processor, tool_executor, termination]
+            [entry, message_prep, llm_processor, tool_executor, evaluate_response, termination]
         )
 
         # Add transitions
@@ -138,9 +170,8 @@ class Agent:
             return termination
 
         machine.connect(llm_processor, [tool_executor, termination], check_tool_calls)
-        machine.connect(
-            tool_executor, llm_processor
-        )  # Go back to llm after tool execution
+        machine.connect(tool_executor, evaluate_response)
+        machine.connect(evaluate_response, llm_processor)
 
         return machine
 

@@ -156,7 +156,8 @@ def game_web_search(question: str) -> str:
 
 def run_project():
     global vector_db
-    vector_db = part1.setup_vector_db()
+    #vector_db = part1.setup_vector_db()
+    vector_db = init_vector_db()
 
     agent: Agent = Agent(
         instructions="""You are UdaPlay, an AI Research Agent for the video game industry.
@@ -168,7 +169,7 @@ def run_project():
         "game_web_search" tool, include the website.
         Answer questions preferably in a simple sentence followed by the citation on a new line.
         """,
-        tools=[retrieve_game, evaluate_retrieval, game_web_search],
+        tools=[retrieve_game, game_web_search],
         model_name="gpt-4-turbo",
     )
 

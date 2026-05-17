@@ -9,14 +9,12 @@ This script combines two parts:
 
 import logging
 
-import part1
 import part2
-from lib.agents import Agent
 
 # Enable debug logging for OpenAI
 # logging.basicConfig(level=logging.DEBUG)
 
 
 if __name__ == "__main__":
-    run_project()
+    part2.run_project()
 
