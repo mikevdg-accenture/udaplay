@@ -10,6 +10,8 @@ if importlib.util.find_spec("pysqlite3") is not None:
 
     sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
 
+import part1
+
 from chromadb.api.types import QueryResult
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
@@ -52,6 +54,7 @@ def init_vector_db():
     collection = chroma_client.get_collection(
         "udaplay", embedding_function=embedding_fn
     )
+    global vector_db
     vector_db = collection
     return collection
 
@@ -75,6 +78,7 @@ def retrieve_game(query: str) -> list:
     resources might be necessary to answer questions.
     """
     # We don't need a state machine for this.
+    global vector_db
     results: QueryResult = vector_db.query(query_texts=[query], n_results=1)
     documents = results["documents"][0] if results["documents"] else []
     return documents
@@ -149,3 +153,37 @@ def game_web_search(question: str) -> str:
     }
 
     return json.dumps(formatted_results)
+
+def run_project():
+    global vector_db
+    vector_db = part1.setup_vector_db()
+
+    agent: Agent = Agent(
+        instructions="""You are UdaPlay, an AI Research Agent for the video game industry.
+        Politely decline to answer any question not related to video games.
+        If the answer is not answered by the `retrieve_game` tool, use the `game_web_search` tool
+        to search the web for the answer.
+        Always include a citation in the answer. For answers derived from the `retrieve_game` 
+        tool, use the citation "Citation: internal database.". For answers derived from the
+        "game_web_search" tool, include the website.
+        Answer questions preferably in a simple sentence followed by the citation on a new line.
+        """,
+        tools=[retrieve_game, evaluate_retrieval, game_web_search],
+        model_name="gpt-4-turbo",
+    )
+
+    test_questions = [
+        "When were Pokémon Gold and Silver was released?",
+        "Which one was the first 3D platformer Mario game?",
+        "Was Mortal Kombat X released for Playstation 5?",
+        # "Tell me all about Donkey Kong."
+    ]
+
+    for question in test_questions:
+        print(f"Question: {question}")
+
+        # agent.invoke() uses a state machine as per the project rubric.
+        agent.invoke(question)
+        print(f"Answer: {agent.get_answer()}\n")
+        
+    agent.pretty_print_memory()
