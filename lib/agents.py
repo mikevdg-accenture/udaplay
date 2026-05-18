@@ -128,9 +128,6 @@ class Agent:
         result: dict = evaluation_agent.invoke(str(agent_query)).get_final_state()
         result_content = result["messages"][-1].content
 
-        print(f"Question: {agent_query}")
-        print(f"Evalution result: {result_content}")
-
         ai_message = AIMessage(
             content=result_content,
             tool_calls=None,

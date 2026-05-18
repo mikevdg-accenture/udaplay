@@ -156,8 +156,8 @@ def game_web_search(question: str) -> str:
 
 def run_project():
     global vector_db
-    #vector_db = part1.setup_vector_db()
-    vector_db = init_vector_db()
+    vector_db = part1.setup_vector_db()
+    #vector_db = init_vector_db()
 
     agent: Agent = Agent(
         instructions="""You are UdaPlay, an AI Research Agent for the video game industry.
